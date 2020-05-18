@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
 	"github.com/google/go-querystring/query"
 )
@@ -50,10 +51,10 @@ func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeSnapshot, erro
 	return out, nil
 }
 
-// TradeBinSnapshot snapshot of ThradeBins
+// TradeBucketedSnapshot snapshot of ThradeBins
 type TradeBucketedSnapshot []models.TradeBucketed
 
-// TradeBinConf query parameters for filtering the TradeBins
+// TradeBucketedConf query parameters for filtering the TradeBins
 type TradeBucketedConf struct {
 	BinSize   string    `url:"binSize,omitempty"` // must
 	Partial   bool      `url:"partial,omitempty"`
@@ -67,14 +68,14 @@ type TradeBucketedConf struct {
 	StartTime time.Time `url:"startTime,omitempty"`
 }
 
-// GetTradeBins returns snapshot of TradeBins
+// GetTradeBucketeds returns snapshot of TradeBins
 func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (TradeBucketedSnapshot, error) {
 	var out TradeBucketedSnapshot
 
 	if f.BinSize == "" {
-		f.BinSize = Minute
-	} else if f.Count > MAXCount {
-		f.Count = MAXCount
+		f.BinSize = bitmex.Minute
+	} else if f.Count > bitmex.MAXCount {
+		f.Count = bitmex.MAXCount
 	}
 
 	params, err := query.Values(f)

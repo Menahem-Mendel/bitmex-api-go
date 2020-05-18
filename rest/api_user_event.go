@@ -6,13 +6,16 @@ import (
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
 )
 
+// UserEventService
 type UserEventService []models.UserEvent
 
+// UserEventConf
 type UserEventConf struct {
 	Count   float64 `url:"count,omitempty"`
-	StartId float64 `url:"startId,omitempty"`
+	StartID float64 `url:"startId,omitempty"`
 }
 
+// GetUserEvent
 func (c Client) GetUserEvent(ctx context.Context, f UserEventConf) (UserEventService, error) {
 	var out UserEventService
 

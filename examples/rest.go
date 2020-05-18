@@ -18,11 +18,11 @@ func main() {
 }
 
 func trades() {
-	c, err := bitmex.NewClient(false).Auth(key, time.Now().Add(time.Hour).Unix())
+	c, err := bitmex.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		fmt.Println(err)
 	}
-	ctx := context.WithValue(context.Background(), bitmex.KeyCtxSecret, secret)
+	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
 
 	f := bitmex.TradeConf{
 		Symbol:  bitmex.XBTUSD,
@@ -40,12 +40,12 @@ func trades() {
 }
 
 func tradeBins() {
-	c, err := bitmex.NewClient(false).Auth(key, time.Now().Add(time.Hour).Unix())
+	c, err := bitmex.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	ctx := context.WithValue(context.Background(), bitmex.KeyCtxSecret, secret)
+	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
 
 	f := bitmex.TradeBucketedConf{
 		Symbol:  bitmex.XBTUSD,
