@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type TradeBin struct {
+type TradeBucketed struct {
 	Symbol          string    `json:"symbol"`
 	Trades          float32   `json:"trades,omitempty"`
 	Volume          float32   `json:"volume,omitempty"`

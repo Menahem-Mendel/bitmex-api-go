@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/go-querystring/query"
-
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
+	"github.com/google/go-querystring/query"
 )
 
-type TradeService []models.Trade
+// TradeSnapshot snapshot of Thrades
+type TradeSnapshot []models.Trade
 
+// TradeConf query parameters for filtering the Trades
 type TradeConf struct {
 	Reverse   bool      `url:"reverse,omitempty"`
 	Count     float32   `url:"count,omitempty"`
@@ -24,8 +25,9 @@ type TradeConf struct {
 	EndTime   time.Time `url:"endTime,omitempty"`
 }
 
-func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeService, error) {
-	var out TradeService
+// GetTrades returns snapshot of Trades
+func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeSnapshot, error) {
+	var out TradeSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
@@ -48,9 +50,11 @@ func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeService, error
 	return out, nil
 }
 
-type TradeBinService []models.TradeBin
+// TradeBinSnapshot snapshot of ThradeBins
+type TradeBucketedSnapshot []models.TradeBucketed
 
-type TradeBinConf struct {
+// TradeBinConf query parameters for filtering the TradeBins
+type TradeBucketedConf struct {
 	BinSize   string    `url:"binSize,omitempty"` // must
 	Partial   bool      `url:"partial,omitempty"`
 	Reverse   bool      `url:"reverse,omitempty"`
@@ -63,13 +67,13 @@ type TradeBinConf struct {
 	StartTime time.Time `url:"startTime,omitempty"`
 }
 
-func (c Client) GetTradeBins(ctx context.Context, f TradeBinConf) (TradeBinService, error) {
-	var out TradeBinService
+// GetTradeBins returns snapshot of TradeBins
+func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (TradeBucketedSnapshot, error) {
+	var out TradeBucketedSnapshot
 
 	if f.BinSize == "" {
 		f.BinSize = Minute
-	}
-	if f.Count > MAXCount {
+	} else if f.Count > MAXCount {
 		f.Count = MAXCount
 	}
 
@@ -78,7 +82,7 @@ func (c Client) GetTradeBins(ctx context.Context, f TradeBinConf) (TradeBinServi
 		return nil, fmt.Errorf("#c.GetTrades query: %v", err)
 	}
 
-	path, err := c.Base.Parse(tradeBin + "?" + params.Encode())
+	path, err := c.Base.Parse(tradeBucketed + "?" + params.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("#GetTrades path: %v", err)
 	}

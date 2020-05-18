@@ -52,7 +52,7 @@ type APIKey struct {
 
 type Configuration struct {
 	BasePath      string            `json:"basePath,omitempty"`
-	Host          string            `json:"host,omitempty"`
+	Host225a      string            `json:"host,omitempty"`
 	Scheme        string            `json:"scheme,omitempty"`
 	DefaultHeader map[string]string `json:"defaultHeader,omitempty"`
 	UserAgent     string            `json:"userAgent,omitempty"`

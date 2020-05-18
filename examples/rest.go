@@ -47,14 +47,14 @@ func tradeBins() {
 
 	ctx := context.WithValue(context.Background(), bitmex.KeyCtxSecret, secret)
 
-	f := bitmex.TradeBinConf{
+	f := bitmex.TradeBucketedConf{
 		Symbol:  bitmex.XBTUSD,
 		Count:   bitmex.MAXCount,
 		BinSize: bitmex.Minute,
 		EndTime: time.Now(),
 	}
 
-	t, err := c.GetTradeBins(ctx, f)
+	t, err := c.GetTradeBucketeds(ctx, f)
 	if err != nil {
 		log.Fatal(err)
 	}
