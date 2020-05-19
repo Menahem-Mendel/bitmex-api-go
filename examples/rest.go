@@ -15,10 +15,7 @@ var secret = "N3nvdzkdhJNkpnFQVHJpa-vh2P6XhkVaMDmZE-AEzQMmKk5j"
 func main() {
 	// trades()
 
-	// tradeBins()
-
-	UserEventGet()
-
+	tradeBins()
 }
 
 // func trades() {
@@ -67,23 +64,3 @@ func main() {
 // 		fmt.Printf("%d: %v\n", i, v)
 // 	}
 // }
-
-func UserEventGet() {
-	c, err := rest.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	ctx := context.WithValue(context.Background(), rest.ContextAPIKey, secret)
-
-	f := rest.UserEventConf{
-		Count: 1000,
-	}
-
-	t, err := c.GetUserEvent(ctx, f)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("%v\n", t)
-}
