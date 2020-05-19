@@ -16,12 +16,12 @@ import (
 
 // endpoints
 const (
-	announcement       = "announcement"        // site announcement
-	announcementUrgent = "announcement/urgent" // urgent (banner) announcement
-	apiKey             = "apiKey"              // api key
+	announcement       = "announcement"        // GET site announcement
+	announcementUrgent = "announcement/urgent" // GET urgent (banner) announcement
+	apiKey             = "apiKey"              // GET api key
 	chat               = "chat"                /*
 		GET chat messages
-		POST
+		POST Send a chat message
 	*/
 	chatChannels               = "chat/channels"               // GET available channels
 	chatConnected              = "chat/connected"              // GET connected users
@@ -130,29 +130,67 @@ func (c *Client) get(ctx context.Context, path *url.URL) ([]byte, error) {
 	return out, nil
 }
 
+// func get(ctx context.Context, base url.URL, key, endpoint string, f interface{}, in interface{}) (interface{}, error) {
+// 	out := reflect.ValueOf(in).Interface()
+// 	// out := reflect.New(reflect.TypeOf(in)).Interface()
+
+// 	params, err := query.Values(f)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#get query: %v", err)
+// 	}
+
+// 	path, err := base.Parse(tradeBucketed + "?" + params.Encode())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#get path: %v", err)
+// 	}
+
+// 	req, err := request(ctx, http.MethodGet, key, path, "")
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#get req: %v", err)
+// 	}
+
+// 	resp, err := do(req)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#get resp: %v", err)
+// 	}
+// 	defer resp.Body.Close()
+
+// 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+// 		return nil, fmt.Errorf("#get unmarshal: %v", err)
+// 	}
+
+// 	return out, nil
+
+// }
+
 func request(ctx context.Context, method, key string, url *url.URL, data string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("#request: %v", err)
 	}
 
+	if err := setHeaders(req, key, method, url.RequestURI(), strconv.FormatInt(expires, 10), data); err != nil {
+		return nil, fmt.Errorf("#request setHeaders: %v", err)
+	}
+
+	return req, nil
+}
+
+func setHeaders(req *http.Request, key, method, path, expires, data string) error {
+
 	req.Header.Set("content-type", "application/json; charset=utf-8")
 
 	if v, ok := req.Context().Value(ContextAPIKey).(string); ok {
-		expires := strconv.FormatInt(expires, 10)
-
-		sign := signature(v, method, url.RequestURI(), expires, data)
-
-		req.Header.Set(signatureAPI, sign)
+		req.Header.Set(signatureAPI, signature(v, method, path, expires, data))
 		req.Header.Set(keyAPI, key)
 		req.Header.Set(expiresAPI, expires)
 	}
 
-	if req.Context().Err() != nil {
-		return nil, fmt.Errorf("#request could not authoarize: %v", err)
+	if err := req.Context().Err(); err != nil {
+		return fmt.Errorf("#setHeaders could not authoarize: %v", err)
 	}
 
-	return req, nil
+	return nil
 }
 
 func do(req *http.Request) (*http.Response, error) {
@@ -162,11 +200,12 @@ func do(req *http.Request) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		bs, err := ioutil.ReadAll(resp.Body)
+		errMessage, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("#do err reading error message from response")
 		}
-		return nil, fmt.Errorf("#do got status: %v\n%s", resp.Status, bs)
+
+		return nil, fmt.Errorf("#do got status: %v\n%s", resp.Status, errMessage)
 	}
 
 	// check rate limit

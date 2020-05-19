@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	bitmex "github.com/Menahem-Mendel/bitmex-api-go/rest"
+	"github.com/Menahem-Mendel/bitmex-api-go/rest"
 )
 
 var key = "KBvdkF8OdLXmio5vJr0upDQC"
@@ -14,52 +14,76 @@ var secret = "N3nvdzkdhJNkpnFQVHJpa-vh2P6XhkVaMDmZE-AEzQMmKk5j"
 
 func main() {
 	// trades()
-	tradeBins()
+
+	// tradeBins()
+
+	UserEventGet()
+
 }
 
-func trades() {
-	c, err := bitmex.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
+// func trades() {
+// 	c, err := rest.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	ctx := context.WithValue(context.Background(), rest.ContextAPIKey, secret)
+
+// 	f := rest.TradeConf{
+// 		Symbol:  bitmex.XBTUSD,
+// 		Count:   bitmex.MAXCount,
+// 		EndTime: time.Now(),
+// 	}
+// 	t, err := c.GetTrades(ctx, f)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	for _, v := range t {
+// 		fmt.Println(v)
+// 	}
+// }
+
+// func tradeBins() {
+// 	c, err := rest.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+
+// 	ctx := context.WithValue(context.Background(), rest.ContextAPIKey, secret)
+
+// 	f := rest.TradeBucketedConf{
+// 		Symbol:  bitmex.XBTUSD,
+// 		Count:   bitmex.MAXCount,
+// 		BinSize: bitmex.Minute,
+// 		EndTime: time.Now(),
+// 	}
+
+// 	t, err := c.GetTradeBucketeds(ctx, f)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	for i, v := range t {
+// 		fmt.Printf("%d: %v\n", i, v)
+// 	}
+// }
+
+func UserEventGet() {
+	c, err := rest.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
 	if err != nil {
 		fmt.Println(err)
 	}
-	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
 
-	f := bitmex.TradeConf{
-		Symbol:  bitmex.XBTUSD,
-		Count:   bitmex.MAXCount,
-		EndTime: time.Now(),
+	ctx := context.WithValue(context.Background(), rest.ContextAPIKey, secret)
+
+	f := rest.UserEventConf{
+		Count: 1000,
 	}
-	t, err := c.GetTrades(ctx, f)
+
+	t, err := c.GetUserEvent(ctx, f)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, v := range t {
-		fmt.Println(v)
-	}
-}
-
-func tradeBins() {
-	c, err := bitmex.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
-
-	f := bitmex.TradeBucketedConf{
-		Symbol:  bitmex.XBTUSD,
-		Count:   bitmex.MAXCount,
-		BinSize: bitmex.Minute,
-		EndTime: time.Now(),
-	}
-
-	t, err := c.GetTradeBucketeds(ctx, f)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for i, v := range t {
-		fmt.Printf("%d: %v\n", i, v)
-	}
+	fmt.Printf("%v\n", t)
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-// TradeSnapshot snapshot of Thrades
+// TradeSnapshot snapshot of Trades
 type TradeSnapshot []models.Trade
 
 // TradeConf query parameters for filtering the Trades
@@ -27,29 +27,29 @@ type TradeConf struct {
 }
 
 // GetTrades returns snapshot of Trades
-func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeSnapshot, error) {
-	var out TradeSnapshot
+// func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeSnapshot, error) {
+// 	var out TradeSnapshot
 
-	params, err := query.Values(f)
-	if err != nil {
-		return nil, fmt.Errorf("#c.GetTrades query: %v", err)
-	}
+// 	params, err := query.Values(f)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#c.GetTrades query: %v", err)
+// 	}
 
-	path, err := c.Base.Parse(trade + "?" + params.Encode())
-	if err != nil {
-		return nil, fmt.Errorf("#GetTrades path: %v", err)
-	}
+// 	path, err := c.Base.Parse(trade + "?" + params.Encode())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#GetTrades path: %v", err)
+// 	}
 
-	bs, err := c.get(ctx, path)
-	if err != nil {
-		return nil, fmt.Errorf("#GetTrades get: %v", err)
-	}
+// 	bs, err := c.get(ctx, path)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#GetTrades get: %v", err)
+// 	}
 
-	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("#GetTrades unmarshal: %v", err)
-	}
-	return out, nil
-}
+// 	if err := json.Unmarshal(bs, &out); err != nil {
+// 		return nil, fmt.Errorf("#GetTrades unmarshal: %v", err)
+// 	}
+// 	return out, nil
+// }
 
 // TradeBucketedSnapshot snapshot of ThradeBins
 type TradeBucketedSnapshot []models.TradeBucketed
@@ -80,21 +80,32 @@ func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (Tra
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#c.GetTrades query: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades query: %v", err)
 	}
 
 	path, err := c.Base.Parse(tradeBucketed + "?" + params.Encode())
 	if err != nil {
-		return nil, fmt.Errorf("#GetTrades path: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades path: %v", err)
 	}
 
 	bs, err := c.get(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("#GetTrades get: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades get: %v", err)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("#GetTrades unmarshal: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades unmarshal: %v", err)
 	}
 	return out, nil
 }
+
+// func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (TradeBucketedSnapshot, error) {
+// 	var out TradeBucketedSnapshot
+
+// 	x, err := get(ctx, c.Base, c.key, tradeBucketed, f, out)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#Client.GetTradeBucketeds: %v", err)
+// 	}
+
+// 	return x.(TradeBucketedSnapshot), nil
+// }
