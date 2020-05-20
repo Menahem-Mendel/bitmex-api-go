@@ -14,8 +14,10 @@ var secret = "N3nvdzkdhJNkpnFQVHJpa-vh2P6XhkVaMDmZE-AEzQMmKk5j"
 
 func main() {
 	// getOrders()
+	// for i := 0; i < 100; i++ {
 	// newOrder()
-	// getOrders()
+	// // }
+	getOrders()
 	deleteOrder()
 }
 
@@ -27,7 +29,7 @@ func deleteOrder() {
 	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
 
 	f := rest.OrderCancelConf{
-		ClOrdID: "mendelm6T5bleL",
+		ClOrdID: "mendelVVUsfb2w",
 	}
 
 	out, err := c.CancelOrder(ctx, f)

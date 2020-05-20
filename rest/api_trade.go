@@ -2,7 +2,6 @@ package rest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,7 +11,7 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-// TradeSnapshot snapshot of Trades
+// TradeSnapshot snapshot of trades
 type TradeSnapshot []models.Trade
 
 // TradeConf query parameters for filtering the Trades
@@ -46,31 +45,34 @@ type TradeConf struct {
 	Symbol    string    `url:"symbol,omitempty"`
 }
 
-// GetTrades returns snapshot of Trades
+// GetTrades get trades
 func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeSnapshot, error) {
 	var out TradeSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades query: %v", err)
+		return nil, fmt.Errorf("#Client.GetOrders query: %v", err)
 	}
 
-	bs, err := c.Do(ctx, http.MethodGet, bitmex.Trade+"?"+params.Encode(), nil)
+	x, err := c.Request(ctx, http.MethodGet, bitmex.Trade+"?"+params.Encode(), nil, out)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades get: %v", err)
+		return nil, fmt.Errorf("#Client.GetOrders: %v", err)
 	}
 
-	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades unmarshal: %v", err)
+	switch x.(type) {
+	case *TradeSnapshot:
+		out = *x.(*TradeSnapshot)
+	default:
+		return nil, fmt.Errorf("#Client.GetOrders type %T isn't supported", x)
 	}
 
 	return out, nil
 }
 
-// TradeBucketedSnapshot snapshot of ThradeBins
+// TradeBucketedSnapshot snapshot of trade bucketeds
 type TradeBucketedSnapshot []models.TradeBucketed
 
-// TradeBucketedConf query parameters for filtering the TradeBins
+// TradeBucketedConf query parameters for filtering the TradeBucketeds
 //
 // BinSize - Time interval to bucket by. Available options: [1m,5m,1h,1d]
 //
@@ -107,30 +109,25 @@ type TradeBucketedConf struct {
 	Symbol    string    `url:"symbol,omitempty"`
 }
 
-// GetTradeBucketeds returns snapshot of TradeBins
+// GetTradeBucketeds get previous trades in time buckets
 func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (TradeBucketedSnapshot, error) {
 	var out TradeBucketedSnapshot
 
-	if f.BinSize == "" {
-		f.BinSize = bitmex.Minute
-	}
-
-	if f.Count > bitmex.MAXCount {
-		f.Count = bitmex.MAXCount
-	}
-
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades query: %v", err)
+		return nil, fmt.Errorf("#Client.GetOrders query: %v", err)
 	}
 
-	bs, err := c.Do(ctx, http.MethodGet, bitmex.TradeBucketed+"?"+params.Encode(), nil)
+	x, err := c.Request(ctx, http.MethodGet, bitmex.TradeBucketed+"?"+params.Encode(), nil, out)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades do request: %v", err)
+		return nil, fmt.Errorf("#Client.GetOrders: %v", err)
 	}
 
-	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades unmarshal: %v", err)
+	switch x.(type) {
+	case *TradeBucketedSnapshot:
+		out = *x.(*TradeBucketedSnapshot)
+	default:
+		return nil, fmt.Errorf("#Client.GetOrders type %T isn't supported", x)
 	}
 
 	return out, nil

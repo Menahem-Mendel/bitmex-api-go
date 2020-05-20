@@ -82,6 +82,24 @@ const (
 	MAXCount float32 = 1000
 )
 
+// order side
+const (
+	Buy  = "Buy"
+	Sell = "Sell"
+)
+
+// order execInst
+const (
+	ParticipateDoNotInitiate = "ParticipateDoNotInitiate"
+	AllOrNone                = "AllOrNone"
+	MarkPrice                = "MarkPrice"
+	IndexPrice               = "IndexPrice"
+	LastPrice                = "LastPrice"
+	Close                    = "Close"
+	ReduceOnly               = "ReduceOnly"
+)
+
+// order pegPriceType
 const (
 	LastPeg         = "LastPeg"
 	MidPricePeg     = "MidPricePeg"
@@ -90,6 +108,7 @@ const (
 	TrailingStopPeg = "TrailingStopPeg"
 )
 
+// order ordType
 const (
 	Limit           = "Limit"
 	Market          = "Market"

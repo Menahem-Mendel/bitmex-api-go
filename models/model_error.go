@@ -1,11 +1,11 @@
 package models
 
-// ModelError
+// ModelError error message
 type ModelError struct {
 	Error *Error `json:"error"`
 }
 
-// Error
+// Error error message field error
 type Error struct {
 	Message string `json:"message,omitempty"`
 	Name    string `json:"name,omitempty"`
