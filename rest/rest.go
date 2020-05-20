@@ -56,7 +56,7 @@ func (c Client) Request(ctx context.Context, method, uri string, data []byte, in
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("#Client.Request decoding response error message: %v", err)
+		return nil, fmt.Errorf("#Client.Request decoding response: %v", err)
 	}
 
 	return out, nil

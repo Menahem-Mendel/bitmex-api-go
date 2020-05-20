@@ -2,10 +2,10 @@ package bitmex
 
 // endpoints
 const (
-	announcement       = "announcement"        // GET site announcement
-	announcementUrgent = "announcement/urgent" // GET urgent (banner) announcement
-	apiKey             = "apiKey"              // GET api key
-	chat               = "chat"                //
+	Announcement       = "announcement"        // GET site announcement
+	AnnouncementUrgent = "announcement/urgent" // GET urgent (banner) announcement
+	APIKey             = "apiKey"              // GET api key
+	Chat               = "chat"                //
 	// GET chat messages
 	// POST Send a chat message
 	ChatChannels               = "chat/channels"               // GET available channels

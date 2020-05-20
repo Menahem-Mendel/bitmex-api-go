@@ -17,8 +17,52 @@ func main() {
 	// for i := 0; i < 100; i++ {
 	// newOrder()
 	// // }
-	getOrders()
-	deleteOrder()
+	// getOrders()
+	// deleteOrder()
+	apiKey()
+}
+
+func apiKey() {
+	c, err := rest.NewAuthClient(false, key)
+	if err != nil {
+		log.Println(err)
+	}
+	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
+
+	f := rest.APIKeyGetConf{
+		Reverse: true,
+	}
+
+	out, err := c.GetAPIKey(ctx, f)
+	if err != nil {
+		log.Println(err)
+	}
+
+	for i, v := range out {
+		fmt.Printf("%d: %v\n", i, v)
+	}
+}
+
+func orderBookL2() {
+	c, err := rest.NewAuthClient(false, key)
+	if err != nil {
+		log.Println(err)
+	}
+	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
+
+	f := rest.OrderBookL2Conf{
+		Symbol: bitmex.XBTUSD,
+		Depth:  0,
+	}
+
+	out, err := c.GetOrderBookL2(ctx, f)
+	if err != nil {
+		log.Println(err)
+	}
+
+	for i, v := range out {
+		fmt.Printf("%d: %v\n", i, v)
+	}
 }
 
 func deleteOrder() {
