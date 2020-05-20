@@ -3,7 +3,6 @@ package rest
 import (
 	"fmt"
 	"net/url"
-	"time"
 
 	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
 )
@@ -12,8 +11,7 @@ import (
 type Client struct {
 	Base url.URL
 
-	key     string
-	expires int64
+	key string
 }
 
 // NewClient creates new client for requesting data from the bitmex exchange
@@ -27,7 +25,7 @@ func NewClient(test bool) *Client {
 		Base: url.URL{
 			Scheme: "https",
 			Host:   host,
-			Path:   bitmex.BitmexAPIPath,
+			Path:   bitmex.BitmexAPIPathV1,
 		},
 	}
 }
@@ -35,11 +33,7 @@ func NewClient(test bool) *Client {
 // NewAuthClient return authoarized client
 // it takes public key and expires time in unix format
 // the secret key you need to pass with requesting as a context value
-func NewAuthClient(test bool, key string, expires int64) (*Client, error) {
-	if expires < time.Now().Unix() {
-		return nil, fmt.Errorf("expired in the past")
-	}
-
+func NewAuthClient(test bool, key string) (*Client, error) {
 	if key == "" {
 		return nil, fmt.Errorf("key should not be empty")
 	}
@@ -52,9 +46,8 @@ func NewAuthClient(test bool, key string, expires int64) (*Client, error) {
 		Base: url.URL{
 			Scheme: "https",
 			Host:   host,
-			Path:   bitmex.BitmexAPIPath,
+			Path:   bitmex.BitmexAPIPathV1,
 		},
-		key:     key,
-		expires: expires,
+		key: key,
 	}, nil
 }

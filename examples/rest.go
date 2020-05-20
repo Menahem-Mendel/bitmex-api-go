@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
 
+	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
 	"github.com/Menahem-Mendel/bitmex-api-go/rest"
 )
 
@@ -13,54 +13,77 @@ var key = "KBvdkF8OdLXmio5vJr0upDQC"
 var secret = "N3nvdzkdhJNkpnFQVHJpa-vh2P6XhkVaMDmZE-AEzQMmKk5j"
 
 func main() {
-	// trades()
-
-	tradeBins()
+	// getOrders()
+	// newOrder()
+	// getOrders()
+	deleteOrder()
 }
 
-// func trades() {
-// 	c, err := rest.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	ctx := context.WithValue(context.Background(), rest.ContextAPIKey, secret)
+func deleteOrder() {
+	c, err := rest.NewAuthClient(false, key)
+	if err != nil {
+		log.Println(err)
+	}
+	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
 
-// 	f := rest.TradeConf{
-// 		Symbol:  bitmex.XBTUSD,
-// 		Count:   bitmex.MAXCount,
-// 		EndTime: time.Now(),
-// 	}
-// 	t, err := c.GetTrades(ctx, f)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+	f := rest.OrderCancelConf{
+		ClOrdID: "mendelm6T5bleL",
+	}
 
-// 	for _, v := range t {
-// 		fmt.Println(v)
-// 	}
-// }
+	out, err := c.CancelOrder(ctx, f)
+	if err != nil {
+		log.Println(err)
+	}
 
-// func tradeBins() {
-// 	c, err := rest.NewAuthClient(false, key, time.Now().Add(time.Hour).Unix())
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
+	for i, v := range out {
+		fmt.Printf("%d: %v\n", i, v)
+	}
+}
 
-// 	ctx := context.WithValue(context.Background(), rest.ContextAPIKey, secret)
+func getOrders() {
+	c, err := rest.NewAuthClient(false, key)
+	if err != nil {
+		log.Println(err)
+	}
+	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
 
-// 	f := rest.TradeBucketedConf{
-// 		Symbol:  bitmex.XBTUSD,
-// 		Count:   bitmex.MAXCount,
-// 		BinSize: bitmex.Minute,
-// 		EndTime: time.Now(),
-// 	}
+	f := rest.OrderConf{
+		Symbol: bitmex.XBTUSD,
+	}
 
-// 	t, err := c.GetTradeBucketeds(ctx, f)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+	out, err := c.GetOrders(ctx, f)
+	if err != nil {
+		log.Println(err)
+	}
 
-// 	for i, v := range t {
-// 		fmt.Printf("%d: %v\n", i, v)
-// 	}
-// }
+	for i, v := range out {
+		fmt.Printf("%d: %v\n", i, v)
+	}
+}
+
+func newOrder() {
+	c, err := rest.NewAuthClient(false, key)
+	if err != nil {
+		log.Println(err)
+	}
+	ctx := context.WithValue(context.Background(), bitmex.ContextAPIKey, secret)
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	f := rest.OrderNewConf{
+		Symbol:   bitmex.XBTUSD,
+		Price:    500,
+		ClOrdID:  "mendel",
+		OrderQty: 1,
+		OrdType:  bitmex.Limit,
+	}
+
+	out, err := c.NewOrder(ctx, f)
+	if err != nil {
+		log.Println(err)
+	}
+
+	fmt.Printf("%v\n", out)
+}

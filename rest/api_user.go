@@ -1,6 +1,36 @@
 package rest
 
-// func (a *UserApiService) UserCancelWithdrawal(ctx context.Context, token string) (Transaction, *http.Response, error) {
+// func (c Client) GetUser(ctx context.Context) (*models.User, error) {
+// 	var user models.User
+
+// 	bs, err := c.Do(ctx, http.MethodGet, bitmex.User)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#Client.GetUser get: %v", err)
+// 	}
+
+// 	if err := json.Unmarshal(bs, &user); err != nil {
+// 		return nil, fmt.Errorf("#Client.GetUser unmarshal: %v", err)
+// 	}
+
+// 	return &user, nil
+// }
+
+// func (c Client) GetUserAffiliateStatus(ctx context.Context) (*models.Affiliate, error) {
+// 	var affiliate models.Affiliate
+
+// 	bs, err := c.Do(ctx, http.MethodGet, bitmex.UserAffiliateStatus)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("#Client.GetUserAffiliateStatus get: %v", err)
+// 	}
+
+// 	if err := json.Unmarshal(bs, &affiliate); err != nil {
+// 		return nil, fmt.Errorf("#Client.GetUserAffiliateStatus unmarshal: %v", err)
+// 	}
+
+// 	return &affiliate, nil
+// }
+
+// func (c Client) DeleteUserWithdrawal(ctx context.Context, token string) (models.Transaction, error) {
 
 type UserCheckReferralCodeConf struct {
 	ReferralCode string
@@ -13,10 +43,6 @@ type UserCheckReferralCodeConf struct {
 // func (a *UserApiService) UserConfirm(ctx context.Context, token string) (AccessToken, *http.Response, error) {
 
 // func (a *UserApiService) UserConfirmWithdrawal(ctx context.Context, token string) (Transaction, *http.Response, error) {
-
-// func (a *UserApiService) UserGet(ctx context.Context) (User, *http.Response, error) {
-
-// func (a *UserApiService) UserGetAffiliateStatus(ctx context.Context) (Affiliate, *http.Response, error) {
 
 // func (a *UserApiService) UserGetCommission(ctx context.Context) (UserCommissionsBySymbol, *http.Response, error) {
 

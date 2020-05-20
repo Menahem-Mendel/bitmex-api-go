@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
@@ -15,15 +16,34 @@ import (
 type TradeSnapshot []models.Trade
 
 // TradeConf query parameters for filtering the Trades
+//
+// Columns - Array of column names to fetch. If omitted, will return all columns.
+// Note that this method will always return item keys, even when not specified, so you may receive more columns that you expect
+//
+// Count - Number of results to fetch
+//
+// EndTime - Ending date filter for results
+//
+// Filter - Generic table filter. Send JSON key/value pairs, such as {"key": "value"}.
+// You can key on individual fields, and do more advanced querying on timestamps. See the Timestamp Docs for more details.
+//
+// Reverse - If true, will sort results newest first
+//
+// Start - Starting point for results
+//
+// StartTime - Starting date filter for results
+//
+// Symbol - Instrument symbol. Send a bare series (e.g. XBT) to get data for the nearest expiring contract in that series.
+// You can also send a timeframe, e.g. XBT:quarterly. Timeframes are nearest, daily, weekly, monthly, quarterly, biquarterly, and perpetual
 type TradeConf struct {
-	Reverse   bool      `url:"reverse,omitempty"`
-	Count     float32   `url:"count,omitempty"`
-	Start     float32   `url:"start,omitempty"`
-	Symbol    string    `url:"symbol,omitempty"`
-	Filter    string    `url:"filter,omitempty"`
 	Columns   string    `url:"columns,omitempty"`
-	StartTime time.Time `url:"startTime,omitempty"`
+	Count     float32   `url:"count,omitempty"`
 	EndTime   time.Time `url:"endTime,omitempty"`
+	Filter    string    `url:"filter,omitempty"`
+	Reverse   bool      `url:"reverse,omitempty"`
+	Start     float32   `url:"start,omitempty"`
+	StartTime time.Time `url:"startTime,omitempty"`
+	Symbol    string    `url:"symbol,omitempty"`
 }
 
 // GetTrades returns snapshot of Trades
@@ -32,22 +52,18 @@ func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeSnapshot, erro
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#c.GetTrades query: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades query: %v", err)
 	}
 
-	path, err := c.Base.Parse(bitmex.Trade + "?" + params.Encode())
+	bs, err := c.Do(ctx, http.MethodGet, bitmex.Trade+"?"+params.Encode(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("#GetTrades path: %v", err)
-	}
-
-	bs, err := get(ctx, path, c.key, c.expires)
-	if err != nil {
-		return nil, fmt.Errorf("#GetTrades get: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades get: %v", err)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("#GetTrades unmarshal: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades unmarshal: %v", err)
 	}
+
 	return out, nil
 }
 
@@ -55,17 +71,40 @@ func (c Client) GetTrades(ctx context.Context, f TradeConf) (TradeSnapshot, erro
 type TradeBucketedSnapshot []models.TradeBucketed
 
 // TradeBucketedConf query parameters for filtering the TradeBins
+//
+// BinSize - Time interval to bucket by. Available options: [1m,5m,1h,1d]
+//
+// Columns - Array of column names to fetch. If omitted, will return all columns.
+// Note that this method will always return item keys, even when not specified, so you may receive more columns that you expect
+//
+// Count - Number of results to fetch
+//
+// EndTime - Ending date filter for results
+//
+// Filter - Generic table filter. Send JSON key/value pairs, such as {"key": "value"}.
+// You can key on individual fields, and do more advanced querying on timestamps. See the Timestamp Docs for more details.
+//
+// Partial - If true, will send in-progress (incomplete) bins for the current time period
+//
+// Reverse - If true, will sort results newest first
+//
+// Start - Starting point for results
+//
+// StartTime - Starting date filter for results
+//
+// Symbol - Instrument symbol. Send a bare series (e.g. XBT) to get data for the nearest expiring contract in that series.
+// You can also send a timeframe, e.g. XBT:quarterly. Timeframes are nearest, daily, weekly, monthly, quarterly, biquarterly, and perpetual
 type TradeBucketedConf struct {
-	BinSize   string    `url:"binSize,omitempty"` // must
+	BinSize   string    `url:"binSize,omitempty"`
+	Columns   string    `url:"columns,omitempty"`
+	Count     float32   `url:"count,omitempty"`
+	EndTime   time.Time `url:"endTime,omitempty"`
+	Filter    string    `url:"filter,omitempty"`
 	Partial   bool      `url:"partial,omitempty"`
 	Reverse   bool      `url:"reverse,omitempty"`
-	Count     float32   `url:"count,omitempty"`
 	Start     float32   `url:"start,omitempty"`
-	Columns   string    `url:"columns,omitempty"`
-	Filter    string    `url:"filter,omitempty"`
-	Symbol    string    `url:"symbol,omitempty"`
-	EndTime   time.Time `url:"endTime,omitempty"`
 	StartTime time.Time `url:"startTime,omitempty"`
+	Symbol    string    `url:"symbol,omitempty"`
 }
 
 // GetTradeBucketeds returns snapshot of TradeBins
@@ -74,7 +113,9 @@ func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (Tra
 
 	if f.BinSize == "" {
 		f.BinSize = bitmex.Minute
-	} else if f.Count > bitmex.MAXCount {
+	}
+
+	if f.Count > bitmex.MAXCount {
 		f.Count = bitmex.MAXCount
 	}
 
@@ -83,29 +124,14 @@ func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (Tra
 		return nil, fmt.Errorf("#Client.GetTrades query: %v", err)
 	}
 
-	path, err := c.Base.Parse(bitmex.TradeBucketed + "?" + params.Encode())
+	bs, err := c.Do(ctx, http.MethodGet, bitmex.TradeBucketed+"?"+params.Encode(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades path: %v", err)
-	}
-
-	bs, err := get(ctx, path, c.key, c.expires)
-	if err != nil {
-		return nil, fmt.Errorf("#Client.GetTrades get: %v", err)
+		return nil, fmt.Errorf("#Client.GetTrades do request: %v", err)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
 		return nil, fmt.Errorf("#Client.GetTrades unmarshal: %v", err)
 	}
+
 	return out, nil
 }
-
-// func (c Client) GetTradeBucketeds(ctx context.Context, f TradeBucketedConf) (TradeBucketedSnapshot, error) {
-// 	var out TradeBucketedSnapshot
-
-// 	x, err := get(ctx, c.Base, c.key, tradeBucketed, f, out)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("#Client.GetTradeBucketeds: %v", err)
-// 	}
-
-// 	return x.(TradeBucketedSnapshot), nil
-// }

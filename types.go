@@ -82,11 +82,29 @@ const (
 	MAXCount float32 = 1000
 )
 
+const (
+	LastPeg         = "LastPeg"
+	MidPricePeg     = "MidPricePeg"
+	MarketPeg       = "MarketPeg"
+	PrimaryPeg      = "PrimaryPeg"
+	TrailingStopPeg = "TrailingStopPeg"
+)
+
+const (
+	Limit           = "Limit"
+	Market          = "Market"
+	Stop            = "Stop"
+	StopLimit       = "StopLimit"
+	MarketIfTouched = "MarketIfTouched"
+	LimitIfTouched  = "LimitIfTouched"
+	Pegged          = "Pegged"
+)
+
 // headers
 const (
-	SignatureAPI = "api-signature"
-	KeyAPI       = "api-key"
-	ExpiresAPI   = "api-expires"
+	SignatureAPI = "Api-Signature"
+	KeyAPI       = "Api-Key"
+	ExpiresAPI   = "Api-Expires"
 
 	RemainingRequestNum = "x-ratelimit-remaining"
 	LimitRequestNum     = "x-ratelimit-limit"
@@ -97,7 +115,7 @@ const (
 const (
 	BitmexHost        = "www.bitmex.com"
 	BitmexHostTestnet = "testnet.bitmex.com"
-	BitmexAPIPath     = "api/v1/"
+	BitmexAPIPathV1   = "/api/v1/"
 )
 
 // timeframe
