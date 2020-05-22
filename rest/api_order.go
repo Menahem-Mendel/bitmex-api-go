@@ -8,11 +8,15 @@ import (
 	"net/http"
 	"time"
 
-	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
 	"github.com/google/go-querystring/query"
 	"github.com/google/uuid"
 )
+
+type OrderService struct {
+	RequestFactory
+	Synchronous
+}
 
 // OrderSnapshot slice of orders
 type OrderSnapshot []models.Order
@@ -39,36 +43,35 @@ type OrderSnapshot []models.Order
 //
 // Text - Optional amend annotation. e.g. 'Adjust skew'
 type OrderAmendConf struct {
-	OrderID        string  `url:"orderID"`
-	OrigClOrdID    string  `url:"origClOrdID,omitempty"`
-	ClOrdID        string  `url:"clOrdID,omitempty"`
-	OrderQty       float32 `url:"orderQty,omitempty"`
-	LeavesQty      float32 `url:"leavesQty,omitempty"`
-	Price          float64 `url:"price,omitempty"`
-	StopPx         float64 `url:"stopPx,omitempty"`
-	PegOffsetValue float64 `url:"pegOffsetValue,omitempty"`
-	Text           string  `url:"text,omitempty"`
+	OrderID        string  `json:"orderID"`
+	OrigClOrdID    string  `json:"origClOrdID,omitempty"`
+	ClOrdID        string  `json:"clOrdID,omitempty"`
+	OrderQty       float32 `json:"orderQty,omitempty"`
+	LeavesQty      float32 `json:"leavesQty,omitempty"`
+	Price          float64 `json:"price,omitempty"`
+	StopPx         float64 `json:"stopPx,omitempty"`
+	PegOffsetValue float64 `json:"pegOffsetValue,omitempty"`
+	Text           string  `json:"text,omitempty"`
 }
 
-// AmendOrder amend the quantity or price of an open order
-func (c Client) AmendOrder(ctx context.Context, f OrderAmendConf) (*models.Order, error) {
+// Amend amend the quantity or price of an open order
+func (o *OrderService) Amend(ctx context.Context, f OrderAmendConf) (*models.Order, error) {
 	var out *models.Order
 
 	data, err := json.Marshal(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.AmendOrder marshal: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodPost, bitmex.Order, data, out)
+	req := o.NewRequest(ctx, http.MethodPut, Order, data)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.AmendOrder: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *models.Order:
-		out = x.(*models.Order)
-	default:
-		return nil, fmt.Errorf("#Client.AmendOrder type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
@@ -79,25 +82,24 @@ type OrderAmendBulkConf struct {
 	Orders string `json:"orders,omitempty"`
 }
 
-// AmendOrderBulk amend multiple orders for the same symbols
-func (c Client) AmendOrderBulk(ctx context.Context, f OrderAmendBulkConf) (OrderSnapshot, error) {
-	var out OrderSnapshot
+// AmendBulk amend multiple orders for the same symbols
+func (o *OrderService) AmendBulk(ctx context.Context, f OrderAmendBulkConf) (*OrderSnapshot, error) {
+	var out *OrderSnapshot
 
 	data, err := json.Marshal(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.AmendOrderBulk marshal: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodPost, bitmex.OrderBulk, data, out)
+	req := o.NewRequest(ctx, http.MethodPut, OrderBulk, data)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.AmendOrderBulk: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *OrderSnapshot:
-		out = *x.(*OrderSnapshot)
-	default:
-		return nil, fmt.Errorf("#Client.AmendOrderBulk type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
@@ -116,25 +118,24 @@ type OrderCancelConf struct {
 	Text    string `url:"text,omitempty"`
 }
 
-// CancelOrder Cancel order(s). Send multiple order IDs to cancel in bulk
-func (c Client) CancelOrder(ctx context.Context, f OrderCancelConf) (OrderSnapshot, error) {
-	var out OrderSnapshot
+// Cancel order(s). Send multiple order IDs to cancel in bulk
+func (o *OrderService) Cancel(ctx context.Context, f OrderCancelConf) (*OrderSnapshot, error) {
+	var out *OrderSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.CancelOrder query: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodDelete, bitmex.Order+"?"+params.Encode(), nil, out)
+	req := o.NewRequest(ctx, http.MethodDelete, Order+params.Encode(), nil)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.CancelOrder: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *OrderSnapshot:
-		out = *x.(*OrderSnapshot)
-	default:
-		return nil, fmt.Errorf("#Client.CancelOrder type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
@@ -153,42 +154,47 @@ type OrderCancelAllConf struct {
 	Text   string `url:"text,omitempty"`
 }
 
-// CancelOrderAll cancels all of your orders
-func (c Client) CancelOrderAll(ctx context.Context, f OrderCancelAllConf) (OrderSnapshot, error) {
-	var out OrderSnapshot
+// CancelAll cancels all of your orders
+func (o *OrderService) CancelAll(ctx context.Context, f OrderCancelAllConf) (*OrderSnapshot, error) {
+	var out *OrderSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.CancelOrderAll query: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodDelete, bitmex.OrderAll+"?"+params.Encode(), nil, out)
+	req := o.NewRequest(ctx, http.MethodDelete, OrderAll+params.Encode(), nil)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.CancelOrderAll: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *OrderSnapshot:
-		out = *x.(*OrderSnapshot)
-	default:
-		return nil, fmt.Errorf("#Client.CancelOrderAll type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
 }
 
-// CancelOrderAllAfter automatically cancel all your orders after a specified timeout
-func (c Client) CancelOrderAllAfter(ctx context.Context, timeout float64) (interface{}, error) {
+// CancelAllAfter automatically cancel all your orders after a specified timeout
+func (o *OrderService) CancelAllAfter(ctx context.Context, timeout float64) (interface{}, error) {
 	var out interface{}
 
-	data, err := json.Marshal(timeout)
+	params, err := query.Values(timeout)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.CancelOrderAllAfter marshal: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	out, err = c.Request(ctx, http.MethodPost, bitmex.OrderBulk, data, out)
+	req := o.NewRequest(ctx, http.MethodDelete, OrderCancelAllAfter+params.Encode(), nil)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.CancelOrderAllAfter: %v", err)
+		return nil, fmt.Errorf("%v", err)
+	}
+
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
@@ -225,25 +231,24 @@ type OrderConf struct {
 	Symbol    string    `url:"symbol,omitempty"`
 }
 
-// GetOrders get your orders
-func (c Client) GetOrders(ctx context.Context, f OrderConf) (OrderSnapshot, error) {
-	var out OrderSnapshot
+// Get get your orders
+func (o *OrderService) Get(ctx context.Context, f OrderConf) (*OrderSnapshot, error) {
+	var out *OrderSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetOrders query: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodGet, bitmex.Order+"?"+params.Encode(), nil, out)
+	req := o.NewRequest(ctx, http.MethodGet, Order+params.Encode(), nil)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetOrders: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *OrderSnapshot:
-		out = *x.(*OrderSnapshot)
-	default:
-		return nil, fmt.Errorf("Client.GetOrders type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
@@ -299,27 +304,26 @@ type OrderNewConf struct {
 	TimeInForce    string  `json:"timeInForce,omitempty"`
 }
 
-// NewOrder create a new order
-func (c Client) NewOrder(ctx context.Context, f OrderNewConf) (*models.Order, error) {
+// New create a new order
+func (o *OrderService) New(ctx context.Context, f OrderNewConf) (*models.Order, error) {
 	var out *models.Order
 
 	f.ClOrdID += base64.StdEncoding.EncodeToString(uuid.New().NodeID())
 
 	data, err := json.Marshal(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.NewOrder marshal: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodPost, bitmex.Order, data, out)
+	req := o.NewRequest(ctx, http.MethodPost, Order, data)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.NewOrder: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *models.Order:
-		out = x.(*models.Order)
-	default:
-		return nil, fmt.Errorf("#Client.NewOrder type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
@@ -330,25 +334,24 @@ type OrderNewBulkConf struct {
 	Orders string `json:"orders,omitempty"`
 }
 
-// NewOrderBulk create multiple new orders for the same symbol
-func (c Client) NewOrderBulk(ctx context.Context, f OrderNewBulkConf) (OrderSnapshot, error) {
+// NewBulk create multiple new orders for the same symbol
+func (o *OrderService) NewBulk(ctx context.Context, f OrderNewBulkConf) (OrderSnapshot, error) {
 	var out OrderSnapshot
 
 	data, err := json.Marshal(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.NewOrderBulk marshal: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodPost, bitmex.OrderBulk, data, out)
+	req := o.NewRequest(ctx, http.MethodPost, Order, data)
+
+	bs, err := o.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.NewOrderBulk: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *OrderSnapshot:
-		out = *x.(*OrderSnapshot)
-	default:
-		return nil, fmt.Errorf("#Client.NewOrderBulk type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil

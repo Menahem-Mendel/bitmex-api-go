@@ -2,13 +2,18 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"github.com/Menahem-Mendel/bitmex-api-go"
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
 	"github.com/google/go-querystring/query"
 )
+
+type BookService struct {
+	RequestFactory
+	Synchronous
+}
 
 // OrderBoolL2Snapshot an order book L2 slice
 type OrderBoolL2Snapshot []models.OrderBookL2
@@ -23,25 +28,24 @@ type OrderBookL2Conf struct {
 	Depth  float32 `url:"depth,omitempty"`
 }
 
-// GetOrderBookL2 get current orderbook in vertical format
-func (c Client) GetOrderBookL2(ctx context.Context, f OrderBookL2Conf) (OrderBoolL2Snapshot, error) {
-	var out OrderBoolL2Snapshot
+// Get get current orderbook in vertical format
+func (b *BookService) Get(ctx context.Context, f OrderBookL2Conf) (*OrderBoolL2Snapshot, error) {
+	var out *OrderBoolL2Snapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetOrderBookL2 query: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodGet, bitmex.OrderBookL2+"?"+params.Encode(), nil, out)
+	req := NewRequest(http.MethodGet, OrderBookL2+params.Encode(), nil)
+
+	bs, err := b.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetOrderBookL2: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *OrderBoolL2Snapshot:
-		out = *x.(*OrderBoolL2Snapshot)
-	default:
-		return nil, fmt.Errorf("#Client.GetOrderBookL2 type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil

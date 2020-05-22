@@ -2,13 +2,18 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
-	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
 	"github.com/google/go-querystring/query"
 )
+
+type APIKeyService struct {
+	RequestFactory
+	Synchronous
+}
 
 // APIKeySnapshot
 type APIKeySnapshot []models.APIKey
@@ -18,25 +23,24 @@ type APIKeyGetConf struct {
 	Reverse bool `url:"reverse,omitempty"`
 }
 
-// GetAPIKey
-func (c Client) GetAPIKey(ctx context.Context, f APIKeyGetConf) (APIKeySnapshot, error) {
-	var out APIKeySnapshot
+// Get
+func (a *APIKeyService) Get(ctx context.Context, f APIKeyGetConf) (*APIKeySnapshot, error) {
+	var out *APIKeySnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetOrders query: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	x, err := c.Request(ctx, http.MethodGet, bitmex.APIKey+"?"+params.Encode(), nil, out)
+	req := NewRequest(http.MethodGet, Order+params.Encode(), nil)
+
+	bs, err := a.Exec(req)
 	if err != nil {
-		return nil, fmt.Errorf("#Client.GetOrders: %v", err)
+		return nil, fmt.Errorf("%v", err)
 	}
 
-	switch x.(type) {
-	case *APIKeySnapshot:
-		out = *x.(*APIKeySnapshot)
-	default:
-		return nil, fmt.Errorf("#Client.GetOrders type %T isn't supported", x)
+	if err := json.Unmarshal(bs, &out); err != nil {
+		return nil, fmt.Errorf("%v", err)
 	}
 
 	return out, nil
