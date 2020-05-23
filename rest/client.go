@@ -183,16 +183,14 @@ func check(resp *http.Response) error {
 
 func scan(resp io.Reader) ([]byte, error) {
 	var out []byte
-
-	scanner := bufio.NewScanner(resp)
-
 	buf := make([]byte, 0, 64*1024)
 
-	scanner.Buffer(buf, 1024*1024)
-	for scanner.Scan() {
-		out = scanner.Bytes()
+	s := bufio.NewScanner(resp)
+	s.Buffer(buf, 1024*1024)
+	for s.Scan() {
+		out = s.Bytes()
 	}
-	if err := scanner.Err(); err != nil {
+	if err := s.Err(); err != nil {
 		return nil, errors.Wrap(err, "can't scan response body")
 	}
 
