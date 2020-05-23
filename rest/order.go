@@ -1,27 +1,27 @@
 package rest
 
 import (
-	"context"
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
 	"github.com/google/go-querystring/query"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 type OrderService struct {
-	RequestFactory
-	Synchronous
+	request
 }
 
 // OrderSnapshot slice of orders
-type OrderSnapshot []models.Order
+type OrderSnapshot []*models.Order
 
-// OrderAmendConf amend order configuration
+// OrderAmendFilter amend order filter configuration
 //
 // OrderID - Order ID
 //
@@ -42,7 +42,7 @@ type OrderSnapshot []models.Order
 // use a negative offset for stop-sell orders and buy-if-touched orders. Optional offset from the peg price for 'Pegged' orders
 //
 // Text - Optional amend annotation. e.g. 'Adjust skew'
-type OrderAmendConf struct {
+type OrderAmendFilter struct {
 	OrderID        string  `json:"orderID"`
 	OrigClOrdID    string  `json:"origClOrdID,omitempty"`
 	ClOrdID        string  `json:"clOrdID,omitempty"`
@@ -55,152 +55,142 @@ type OrderAmendConf struct {
 }
 
 // Amend amend the quantity or price of an open order
-func (o *OrderService) Amend(ctx context.Context, f OrderAmendConf) (*models.Order, error) {
+func (o OrderService) Amend(f OrderAmendFilter) (*models.Order, error) {
 	var out *models.Order
 
 	data, err := json.Marshal(f)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't marshal (%v) to json", f)
 	}
 
-	req := o.NewRequest(ctx, http.MethodPut, Order, data)
-
-	bs, err := o.Exec(req)
+	bs, err := o.put(order, data)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't put order (uri = %q, data = [%s])", order, data)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
-}
-
-// OrderAmendBulkConf an array of orders
-type OrderAmendBulkConf struct {
-	Orders string `json:"orders,omitempty"`
 }
 
 // AmendBulk amend multiple orders for the same symbols
-func (o *OrderService) AmendBulk(ctx context.Context, f OrderAmendBulkConf) (*OrderSnapshot, error) {
-	var out *OrderSnapshot
+func (o OrderService) AmendBulk(orders string) (OrderSnapshot, error) {
+	var out OrderSnapshot
 
-	data, err := json.Marshal(f)
+	data := bytes.TrimSpace([]byte(orders))
+
+	bs, err := o.put(orderBulk, data)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
-	}
-
-	req := o.NewRequest(ctx, http.MethodPut, OrderBulk, data)
-
-	bs, err := o.Exec(req)
-	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't put orders (uri = %q, data = [%s])", orderBulk, data)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
 }
 
-// OrderCancelConf cancel order configuration
+// OrderCancelFilter cancel order filter configuration
 //
 // OrderID - Order ID(s).
 //
 // ClOrdID - Client Order ID(s). See POST /order
 //
 // Text - Optional cancellation annotation. e.g. 'Spread Exceeded'
-type OrderCancelConf struct {
+type OrderCancelFilter struct {
 	OrderID string `url:"orderID,omitempty"`
 	ClOrdID string `url:"clOrdID,omitempty"`
 	Text    string `url:"text,omitempty"`
 }
 
 // Cancel order(s). Send multiple order IDs to cancel in bulk
-func (o *OrderService) Cancel(ctx context.Context, f OrderCancelConf) (*OrderSnapshot, error) {
-	var out *OrderSnapshot
+func (o OrderService) Cancel(f OrderCancelFilter) (OrderSnapshot, error) {
+	var out OrderSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't parse (%v) to url value", f)
 	}
 
-	req := o.NewRequest(ctx, http.MethodDelete, Order+params.Encode(), nil)
+	uri := order + "?" + params.Encode()
 
-	bs, err := o.Exec(req)
+	bs, err := o.delete(uri)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't delete order (uri = %q)", uri)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
 }
 
-// OrderCancelAllConf cancel order configuration
+// OrderCancelAllFilter cancel order filter configuration
 //
 // Symbol - Optional symbol. If provided, only cancels orders for that symbol
 //
 // Filter - Optional filter for cancellation. Use to only cancel some orders, e.g. {"side": "Buy"}
 //
 // Text - Optional cancellation annotation. e.g. 'Spread Exceeded
-type OrderCancelAllConf struct {
+type OrderCancelAllFilter struct {
 	Symbol string `url:"symbol,omitempty"`
 	Filter string `url:"filter,omitempty"`
 	Text   string `url:"text,omitempty"`
 }
 
 // CancelAll cancels all of your orders
-func (o *OrderService) CancelAll(ctx context.Context, f OrderCancelAllConf) (*OrderSnapshot, error) {
-	var out *OrderSnapshot
+func (o OrderService) CancelAll(f OrderCancelAllFilter) (OrderSnapshot, error) {
+	var out OrderSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't parse (%v) to url value", f)
 	}
 
-	req := o.NewRequest(ctx, http.MethodDelete, OrderAll+params.Encode(), nil)
+	uri := orderAll + "?" + params.Encode()
 
-	bs, err := o.Exec(req)
+	bs, err := o.delete(uri)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't delete orders (uri = %q)", uri)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
 }
 
 // CancelAllAfter automatically cancel all your orders after a specified timeout
-func (o *OrderService) CancelAllAfter(ctx context.Context, timeout float64) (interface{}, error) {
+func (o OrderService) CancelAllAfter(timeout float64) (interface{}, error) {
 	var out interface{}
 
-	params, err := query.Values(timeout)
-	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+	var params url.Values
+
+	if timeout != 0. {
+		params = make(url.Values)
+		params.Set("timeout", fmt.Sprintf("%f", timeout))
 	}
 
-	req := o.NewRequest(ctx, http.MethodDelete, OrderCancelAllAfter+params.Encode(), nil)
+	uri := orderCancelAllAfter + "?" + params.Encode()
 
-	bs, err := o.Exec(req)
+	bs, err := o.delete(uri)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't delete orders (uri = %q)", uri)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
 }
 
-// OrderConf get order configuration
+// OrderFilter get order filter configuration
 //
 // Columns - Array of column names to fetch. If omitted, will return all columns.
 // Note that this method will always return item keys, even when not specified, so you may receive more columns that you expect
@@ -220,7 +210,7 @@ func (o *OrderService) CancelAllAfter(ctx context.Context, timeout float64) (int
 //
 // Symbol - Instrument symbol. Send a bare series (e.g. XBT) to get data for the nearest expiring contract in that series.
 // You can also send a timeframe, e.g. XBT:quarterly. Timeframes are nearest, daily, weekly, monthly, quarterly, biquarterly, and perpetual
-type OrderConf struct {
+type OrderFilter struct {
 	Columns   string    `url:"columns,omitempty"`
 	Count     float32   `url:"count,omitempty"`
 	EndTime   time.Time `url:"endTime,omitempty"`
@@ -232,29 +222,29 @@ type OrderConf struct {
 }
 
 // Get get your orders
-func (o *OrderService) Get(ctx context.Context, f OrderConf) (*OrderSnapshot, error) {
-	var out *OrderSnapshot
+func (o OrderService) Get(f OrderFilter) (OrderSnapshot, error) {
+	var out OrderSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't parse (%v) to url value", f)
 	}
 
-	req := o.NewRequest(ctx, http.MethodGet, Order+params.Encode(), nil)
+	uri := order + "?" + params.Encode()
 
-	bs, err := o.Exec(req)
+	bs, err := o.get(uri)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't get orders (uri = %q)", uri)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
 }
 
-// OrderNewConf order configuration
+// OrderNewFilter order filter configuration
 //
 // ClOrdID - Optional Client Order ID. This clOrdID will come back on the order and any related executions
 //
@@ -288,7 +278,7 @@ func (o *OrderService) Get(ctx context.Context, f OrderConf) (*OrderSnapshot, er
 //
 // TimeInForce - Time in force. Valid options: Day, GoodTillCancel, ImmediateOrCancel, FillOrKill.
 // Defaults to 'GoodTillCancel' for 'Limit', 'StopLimit', and 'LimitIfTouched' orders
-type OrderNewConf struct {
+type OrderNewFilter struct {
 	ClOrdID        string  `json:"clOrdID,omitempty"`
 	DisplayQty     float32 `json:"displayQty,omitempty"`
 	ExecInst       string  `json:"execInst,omitempty"`
@@ -305,53 +295,42 @@ type OrderNewConf struct {
 }
 
 // New create a new order
-func (o *OrderService) New(ctx context.Context, f OrderNewConf) (*models.Order, error) {
+func (o OrderService) New(f OrderNewFilter) (*models.Order, error) {
 	var out *models.Order
 
 	f.ClOrdID += base64.StdEncoding.EncodeToString(uuid.New().NodeID())
 
 	data, err := json.Marshal(f)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't marshal json")
 	}
 
-	req := o.NewRequest(ctx, http.MethodPost, Order, data)
-
-	bs, err := o.Exec(req)
+	bs, err := o.post(order, data)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't post %s", order)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
 }
 
-// OrderNewBulkConf an array of orders
-type OrderNewBulkConf struct {
-	Orders string `json:"orders,omitempty"`
-}
-
 // NewBulk create multiple new orders for the same symbol
-func (o *OrderService) NewBulk(ctx context.Context, f OrderNewBulkConf) (OrderSnapshot, error) {
+// orders - array of orders
+func (o OrderService) NewBulk(orders string) (OrderSnapshot, error) {
 	var out OrderSnapshot
 
-	data, err := json.Marshal(f)
-	if err != nil {
-		return nil, fmt.Errorf("%v", err)
-	}
+	data := bytes.TrimSpace([]byte(orders))
 
-	req := o.NewRequest(ctx, http.MethodPost, Order, data)
-
-	bs, err := o.Exec(req)
+	bs, err := o.post(orderBulk, data)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't post %s", orderBulk)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't unmarshal response body to type %T", out)
 	}
 
 	return out, nil

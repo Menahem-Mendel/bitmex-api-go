@@ -2,23 +2,21 @@ package rest
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
 	"github.com/google/go-querystring/query"
+	"github.com/pkg/errors"
 )
 
 type TradeService struct {
-	RequestFactory
-	Synchronous
+	request
 }
 
 // TradeSnapshot snapshot of trades
-type TradeSnapshot []models.Trade
+type TradeSnapshot []*models.Trade
 
-// TradeConf query parameters for filtering the Trades
+// TradeFilter query parameters for filtering the Trades
 //
 // Columns - Array of column names to fetch. If omitted, will return all columns.
 // Note that this method will always return item keys, even when not specified, so you may receive more columns that you expect
@@ -38,7 +36,7 @@ type TradeSnapshot []models.Trade
 //
 // Symbol - Instrument symbol. Send a bare series (e.g. XBT) to get data for the nearest expiring contract in that series.
 // You can also send a timeframe, e.g. XBT:quarterly. Timeframes are nearest, daily, weekly, monthly, quarterly, biquarterly, and perpetual
-type TradeConf struct {
+type TradeFilter struct {
 	Columns   string    `url:"columns,omitempty"`
 	Count     float32   `url:"count,omitempty"`
 	EndTime   time.Time `url:"endTime,omitempty"`
@@ -49,24 +47,23 @@ type TradeConf struct {
 	Symbol    string    `url:"symbol,omitempty"`
 }
 
-// Get get trades
-func (t *TradeService) Get(f TradeConf) (*TradeSnapshot, error) {
-	var out *TradeSnapshot
+func (t TradeService) Get(f TradeFilter) (TradeSnapshot, error) {
+	var out TradeSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't parse url value")
 	}
 
-	req := NewRequest(http.MethodGet, Trade+"?"+params.Encode(), nil)
+	uri := trade + "?" + params.Encode()
 
-	bs, err := t.Exec(req)
+	bs, err := t.get(uri)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't get %s", trade)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil
@@ -75,7 +72,7 @@ func (t *TradeService) Get(f TradeConf) (*TradeSnapshot, error) {
 // TradeBucketedSnapshot snapshot of trade bucketeds
 type TradeBucketedSnapshot []models.TradeBucketed
 
-// TradeBucketedConf query parameters for filtering the TradeBucketeds
+// TradeBucketedFilter query parameters for filtering the TradeBucketeds
 //
 // BinSize - Time interval to bucket by. Available options: [1m,5m,1h,1d]
 //
@@ -99,7 +96,7 @@ type TradeBucketedSnapshot []models.TradeBucketed
 //
 // Symbol - Instrument symbol. Send a bare series (e.g. XBT) to get data for the nearest expiring contract in that series.
 // You can also send a timeframe, e.g. XBT:quarterly. Timeframes are nearest, daily, weekly, monthly, quarterly, biquarterly, and perpetual
-type TradeBucketedConf struct {
+type TradeBucketedFilter struct {
 	BinSize   string    `url:"binSize,omitempty"`
 	Columns   string    `url:"columns,omitempty"`
 	Count     float32   `url:"count,omitempty"`
@@ -112,24 +109,23 @@ type TradeBucketedConf struct {
 	Symbol    string    `url:"symbol,omitempty"`
 }
 
-// GetBucketeds get previous trades in time buckets
-func (t *TradeService) GetBucketeds(f TradeBucketedConf) (*TradeBucketedSnapshot, error) {
-	var out *TradeBucketedSnapshot
+func (t TradeService) GetBucketed(f TradeBucketedFilter) (TradeBucketedSnapshot, error) {
+	var out TradeBucketedSnapshot
 
 	params, err := query.Values(f)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "can't parse url value")
 	}
 
-	req := NewRequest(http.MethodGet, TradeBucketed+"?"+params.Encode(), nil)
+	uri := tradeBucketed + "?" + params.Encode()
 
-	bs, err := t.Exec(req)
+	bs, err := t.get(uri)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, errors.Wrapf(err, "can't get %s", tradeBucketed)
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "can't unmarshal json")
 	}
 
 	return out, nil

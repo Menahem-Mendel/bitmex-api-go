@@ -1,10 +1,12 @@
 package rest
 
 import (
-	"context"
+	"bufio"
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,91 +14,198 @@ import (
 	"time"
 
 	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
+	"github.com/pkg/errors"
 )
 
-// Client stores the requiared data for requesting
+// headers
+const (
+	remaining = "x-ratelimit-remaining"
+	limit     = "x-ratelimit-limit"
+	reset     = "x-ratelimit-reset"
+)
+
+type request interface {
+	get(uri string) ([]byte, error)
+	post(uri string, body []byte) ([]byte, error)
+	put(uri string, body []byte) ([]byte, error)
+	delete(uri string) ([]byte, error)
+}
+
 type Client struct {
-	apikey string
+	URL url.URL
+
+	key    string
+	secret string
 
 	Orders  OrderService
 	APIKeys APIKeyService
-	Trades  TradeService
 
-	Synchronous
+	Trades TradeService
+	Book   BookService
+	Stats  StatsService
+
+	Custom CustomService
+
+	// Users UserService
+	// Settlement SettlementService
+	// Leaderboard LeaderboardService
+	// Quotes QuoteService
+	// Positions PositionService
 }
 
-// NewClient creates new client for requesting data from the bitmex exchange
-func NewTestClient() *Client {
-	httpDo := func(c *http.Client, req *http.Request) (*http.Response, error) {
-		return c.Do(req)
-	}
-	return newClient(bitmex.BitmexHostTestnet, httpDo)
+func NewClientTestnet() *Client {
+	return newClient(bitmex.BitmexHostTestnet)
 }
 
-// NewAuthClient return authoarized client
-// it takes public key and expires time in unix format
-// the secret key you need to pass with requesting as a context value
 func NewClient() *Client {
-	httpDo := func(c *http.Client, req *http.Request) (*http.Response, error) {
-		return c.Do(req)
-	}
-
-	return newClient(bitmex.BitmexHost, httpDo)
+	return newClient(bitmex.BitmexHost)
 }
 
-func (c *Client) Credentials(apikey string) *Client {
-	c.apikey = apikey
+func (c *Client) Auth(secret, key string) *Client {
+	c.key = key
+	c.secret = secret
 	return c
 }
 
-func newClient(base string, httpDo func(*http.Client, *http.Request) (*http.Response, error)) *Client {
-
-	baseURL := &url.URL{
-		Scheme: "https",
-		Host:   base,
-		Path:   bitmex.BitmexAPIV1,
-	}
-
-	sync := &Transport{
-		BaseURL:    baseURL,
-		httpDo:     httpDo,
-		HTTPClient: http.DefaultClient,
-	}
-
+func newClient(base string) *Client {
 	c := &Client{
-		Synchronous: sync,
+		URL: url.URL{
+			Scheme: "https",
+			Host:   base,
+			Path:   bitmex.BitmexAPIV1,
+		},
 	}
 
-	c.Orders = OrderService{Synchronous: c, RequestFactory: c}
-	c.APIKeys = APIKeyService{Synchronous: c, RequestFactory: c}
-	c.Trades = TradeService{Synchronous: c, RequestFactory: c}
+	c.Orders = OrderService{request: c}
+	c.APIKeys = APIKeyService{request: c}
+	c.Trades = TradeService{request: c}
+	c.Book = BookService{request: c}
+	c.Stats = StatsService{request: c}
+	c.Custom = CustomService{request: c}
 
 	return c
 }
 
-func (c *Client) NewRequest(ctx context.Context, method, uri string, data []byte) *Request {
-	req := NewRequest(method, uri, data)
-	req.ctx = ctx
-
-	secret, ok := ctx.Value(bitmex.ContextAPIKey).(string)
-	if !ok {
-		log.Panicln("secret isn't valid")
-	}
-
-	expires := strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)
-
-	sign := signature(secret, method, uri, expires, string(data))
-
-	req.Headers["api-signature"] = sign
-	req.Headers["api-key"] = c.apikey
-	req.Headers["api-expires"] = expires
-
-	return req
+func (c Client) get(uri string) ([]byte, error) {
+	return c.request(http.MethodGet, uri, nil)
 }
 
-func signature(secret, method, uri, expires, data string) string {
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(method + bitmex.BitmexAPIV1 + uri + expires + data))
+// Put sends PUT request to the server
+func (c Client) put(uri string, body []byte) ([]byte, error) {
+	return c.request(http.MethodPut, uri, body)
+}
 
-	return hex.EncodeToString(h.Sum(nil))
+// Post sends POST post request to the server
+func (c Client) post(uri string, body []byte) ([]byte, error) {
+	return c.request(http.MethodPost, uri, body)
+}
+
+// Delete sends DELETE request to the server
+func (c Client) delete(uri string) ([]byte, error) {
+	return c.request(http.MethodDelete, uri, nil)
+}
+
+func (c Client) request(method, uri string, body []byte) ([]byte, error) {
+	u, err := c.URL.Parse(uri)
+	if err != nil {
+		return nil, errors.Wrapf(err, "can't parse (uri = %q)", uri)
+	}
+
+	log.Printf("INFO - Requesting %q", u.String())
+	req, err := http.NewRequest(method, u.String(), bytes.NewReader(body))
+	if err != nil {
+		return nil, errors.Wrap(err, "can't make new request")
+	}
+
+	setHeaders(req)
+
+	// authorization not required
+	if c.secret != "" && c.key != "" {
+		log.Printf("INFO - Authorizing via API key")
+		exp := strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)
+
+		s, err := sign(c.secret, method, uri, exp, string(body))
+		if err != nil {
+			return nil, errors.Wrap(err, "can't generate signature")
+		}
+
+		req.Header.Set("api-signature", s)
+		req.Header.Set("api-key", c.key)
+		req.Header.Set("api-expires", exp)
+	}
+
+	return do(req)
+}
+
+func setHeaders(req *http.Request) {
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("accept", "application/json")
+	req.Header.Set("user-agent", "Jpro")
+}
+
+func do(req *http.Request) ([]byte, error) {
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't do request")
+	}
+	defer resp.Body.Close()
+
+	if err := check(resp); err != nil {
+		return nil, errors.Wrapf(err, "response status code %s", resp.Status)
+	}
+
+	return scan(resp.Body)
+}
+
+func check(resp *http.Response) error {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusIMUsed {
+		rmn, err := strconv.Atoi(resp.Header.Get(remaining))
+		if err != nil {
+			return errors.Wrapf(err, "can't convert string (%s) to int", resp.Header.Get(remaining))
+		} else if rmn < 1 {
+			rst, err := strconv.ParseInt(resp.Header.Get(reset), 10, 64)
+			if err != nil {
+				return errors.Wrapf(err, "can't convert string (%s) to int", resp.Header.Get(remaining))
+			}
+			log.Printf("SLEEP - untill rate limit resets %v", time.Until(time.Unix(int64(rst), 0)))
+			time.Sleep(time.Until(time.Unix(int64(rst), 0)))
+		}
+
+		bs, err := scan(resp.Body)
+		if err != nil {
+			return errors.Wrap(err, "can't scan response body")
+		}
+		return errors.Errorf("%s", bs)
+	}
+
+	return nil
+}
+
+func scan(resp io.Reader) ([]byte, error) {
+	var out []byte
+
+	scanner := bufio.NewScanner(resp)
+
+	buf := make([]byte, 0, 64*1024)
+
+	scanner.Buffer(buf, 1024*1024)
+	for scanner.Scan() {
+		out = scanner.Bytes()
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, errors.Wrap(err, "can't scan response body")
+	}
+
+	return out, nil
+}
+
+func sign(secret, method, uri, expires, data string) (string, error) {
+	msg := method + bitmex.BitmexAPIV1 + uri + expires + data
+
+	h := hmac.New(sha256.New, []byte(secret))
+	if _, err := h.Write([]byte(msg)); err != nil {
+		return "", errors.Wrapf(err, "can't write encrypted data")
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
