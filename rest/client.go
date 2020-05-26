@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	bitmex "github.com/Menahem-Mendel/bitmex-api-go"
+	"github.com/Menahem-Mendel/bitmex-api-go/models"
 	"github.com/pkg/errors"
 )
 
@@ -32,7 +34,7 @@ type request interface {
 }
 
 type Client struct {
-	URL url.URL
+	url.URL
 
 	key    string
 	secret string
@@ -61,7 +63,7 @@ func NewClient() *Client {
 	return newClient(bitmex.BitmexHost)
 }
 
-func (c *Client) Auth(secret, key string) *Client {
+func (c *Client) Auth(key, secret string) *Client {
 	c.key = key
 	c.secret = secret
 	return c
@@ -151,31 +153,31 @@ func do(req *http.Request) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if err := check(resp); err != nil {
-		return nil, errors.Wrapf(err, "response status code %s", resp.Status)
+		return nil, errors.Wrap(err, "response error")
 	}
 
 	return scan(resp.Body)
 }
 
 func check(resp *http.Response) error {
-	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusIMUsed {
-		rmn, err := strconv.Atoi(resp.Header.Get(remaining))
+	rmn, err := strconv.Atoi(resp.Header.Get(remaining))
+	if err != nil {
+		return errors.Wrapf(err, "can't convert string (%s) to int", resp.Header.Get(remaining))
+	} else if rmn < 1 {
+		rst, err := strconv.ParseInt(resp.Header.Get(reset), 10, 64)
 		if err != nil {
 			return errors.Wrapf(err, "can't convert string (%s) to int", resp.Header.Get(remaining))
-		} else if rmn < 1 {
-			rst, err := strconv.ParseInt(resp.Header.Get(reset), 10, 64)
-			if err != nil {
-				return errors.Wrapf(err, "can't convert string (%s) to int", resp.Header.Get(remaining))
-			}
-			log.Printf("SLEEP - untill rate limit resets %v", time.Until(time.Unix(int64(rst), 0)))
-			time.Sleep(time.Until(time.Unix(int64(rst), 0)))
 		}
+		log.Printf("INFO - Wait %s untill rate limit resets", time.Until(time.Unix(int64(rst), 0)).String())
+		time.Sleep(time.Until(time.Unix(int64(rst), 0)))
+	}
 
-		bs, err := scan(resp.Body)
-		if err != nil {
-			return errors.Wrap(err, "can't scan response body")
+	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusIMUsed {
+		var out models.Error
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return errors.Wrap(err, "can't decode json error response message")
 		}
-		return errors.Errorf("%s", bs)
+		return errors.Errorf("status %v: %s - %s", resp.Status, out.Error.Name, out.Error.Message)
 	}
 
 	return nil
@@ -183,10 +185,10 @@ func check(resp *http.Response) error {
 
 func scan(resp io.Reader) ([]byte, error) {
 	var out []byte
-	buf := make([]byte, 0, 64*1024)
+	buf := make([]byte, 0, bufio.MaxScanTokenSize)
 
 	s := bufio.NewScanner(resp)
-	s.Buffer(buf, 1024*1024)
+	s.Buffer(buf, bufio.MaxScanTokenSize*16)
 	for s.Scan() {
 		out = s.Bytes()
 	}

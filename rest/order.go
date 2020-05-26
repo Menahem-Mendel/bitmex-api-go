@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Menahem-Mendel/bitmex-api-go/models"
@@ -155,7 +156,7 @@ func (o OrderService) CancelAll(f OrderCancelAllFilter) (OrderSnapshot, error) {
 
 	bs, err := o.delete(uri)
 	if err != nil {
-		return nil, errors.Wrapf(err, "can't delete orders (uri = %q)", uri)
+		return nil, errors.Wrap(err, "can't delete orders")
 	}
 
 	if err := json.Unmarshal(bs, &out); err != nil {
@@ -298,7 +299,7 @@ type OrderNewFilter struct {
 func (o OrderService) New(f OrderNewFilter) (*models.Order, error) {
 	var out *models.Order
 
-	f.ClOrdID += base64.StdEncoding.EncodeToString(uuid.New().NodeID())
+	f.ClOrdID = encode(f.ClOrdID)
 
 	data, err := json.Marshal(f)
 	if err != nil {
@@ -334,4 +335,8 @@ func (o OrderService) NewBulk(orders string) (OrderSnapshot, error) {
 	}
 
 	return out, nil
+}
+
+func encode(str string) string {
+	return str + strings.ReplaceAll(base64.StdEncoding.EncodeToString(uuid.New().NodeID()), "=", "-")
 }

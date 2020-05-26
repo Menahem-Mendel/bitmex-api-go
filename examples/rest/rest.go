@@ -29,7 +29,7 @@ func main() {
 	// }
 	// wg.Wait()
 
-	c := rest.NewClient().Auth(secret, key)
+	c := rest.NewClient().Auth(key, secret)
 
 	f2 := rest.TradeFilter{
 		Symbol:    bitmex.XBTUSD,
